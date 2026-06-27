@@ -1,21 +1,19 @@
+import { redirect } from 'next/navigation';
 import { Topbar } from '@/components/layout/Topbar';
-import { Card } from '@/components/ui/Card';
+import { getAuthUser } from '@/lib/middleware/auth';
+import { AllyshipDashboard } from '@/components/features/AllyshipDashboard';
 
 export default function AllyshipPage() {
+  const user = getAuthUser();
+  if (!user) redirect('/');
+
   return (
     <>
       <Topbar
         title="Allyship Training"
         breadcrumb={['Support Nest', 'Allyship']}
       />
-      <div className="space-y-6 p-6">
-        <Card>
-          <p className="text-sm text-[var(--text-3)]">
-            Placeholder — your allyship training dashboard, module library, and
-            certifications arrive in Chunk 3.
-          </p>
-        </Card>
-      </div>
+      <AllyshipDashboard userId={user.id} />
     </>
   );
 }

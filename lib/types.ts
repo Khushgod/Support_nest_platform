@@ -31,3 +31,62 @@ export const ROLE_HOME: Record<Role, string> = {
   talent_acquisition: '/pipeline',
   employee_hr: '/allyship',
 };
+
+// ── Hiring domain ────────────────────────────────────────────────────────────
+
+export type RequisitionStatus = 'open' | 'closed' | 'on_hold';
+export type Neurodivergence = 'autistic' | 'adhd' | 'both' | 'other';
+export type CandidateStatus =
+  | 'applied'
+  | 'matched'
+  | 'assessing'
+  | 'interviewing'
+  | 'offered'
+  | 'rejected';
+export type PhaseName =
+  | 'apply'
+  | 'match'
+  | 'assess'
+  | 'interview'
+  | 'onboard'
+  | 'thrive';
+
+export const PHASE_ORDER: PhaseName[] = [
+  'apply',
+  'match',
+  'assess',
+  'interview',
+  'onboard',
+  'thrive',
+];
+
+export interface Requisition {
+  id: string;
+  organization_id: string;
+  title: string;
+  team: string;
+  description: string | null;
+  openings: number;
+  status: RequisitionStatus;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface Candidate {
+  id: string;
+  organization_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  neurodivergence: Neurodivergence;
+  years_experience: number;
+  status: CandidateStatus;
+  created_at: string;
+}
+
+export const NEURODIVERGENCE_LABELS: Record<Neurodivergence, string> = {
+  autistic: 'Autistic',
+  adhd: 'ADHD',
+  both: 'Autistic + ADHD',
+  other: 'Other',
+};

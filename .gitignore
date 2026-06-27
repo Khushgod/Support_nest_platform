@@ -1,0 +1,29 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next
+/out
+
+# production
+/build
+
+# database (SQLite, created at runtime)
+/data/*.db
+/data/*.db-shm
+/data/*.db-wal
+
+# uploads (user files)
+/uploads/*
+!/uploads/.gitkeep
+
+# env
+.env
+.env.local
+.env*.local
+
+# misc
+*.log
+.DS_Store
+next-env.d.ts
+*.tsbuildinfo

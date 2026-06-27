@@ -1,0 +1,26 @@
+/*
+ * Support Nest — design tokens (dark theme only for MVP).
+ * All colors are exposed as CSS variables so components stay theme-agnostic.
+ */
+:root {
+  /* Surfaces */
+  --bg: #0E1018;        /* page background */
+  --surface-1: #171A26; /* cards */
+  --surface-2: #1E2230; /* elevated */
+
+  /* Text */
+  --text: #EDEEF2;      /* primary text */
+  --text-2: #A4A9BC;    /* secondary */
+  --text-3: #6E7488;    /* muted */
+
+  /* Accents */
+  --violet: #7C8CF8;    /* active / primary action */
+  --teal: #4FD1C5;      /* success / match signals */
+  --amber: #F5B84E;     /* in-progress / attention */
+  --rose: #F08A8A;      /* warning (never harsh red) */
+  --green: #5DD39E;     /* retention / success */
+
+  /* Derived */
+  --border: #262B3C;    /* subtle separators / card borders */
+  --radius: 12px;
+}

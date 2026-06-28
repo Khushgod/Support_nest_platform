@@ -15,6 +15,9 @@ interface ReqRow {
   openings: number;
   status: string;
   candidateCount: number;
+  pendingDocs: number;
+  docsSubmitted: number;
+  matched: number;
 }
 interface Stakeholder {
   id: string;
@@ -45,6 +48,7 @@ interface PmData {
     avgMatchScore: number;
   };
   assessmentPassRate: { graded: number; passRate: number } | null;
+  intake: { pendingDocs: number; docsSubmitted: number };
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -126,16 +130,28 @@ export function PmDashboard() {
         />
       </div>
 
-      {data.assessmentPassRate && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          label="Invites pending docs"
+          value={data.intake.pendingDocs}
+          delta="awaiting candidate upload"
+          tone="amber"
+        />
+        <MetricCard
+          label="Docs submitted"
+          value={data.intake.docsSubmitted}
+          delta="ready for review"
+          tone="teal"
+        />
+        {data.assessmentPassRate && (
           <MetricCard
             label="Skill assessment pass rate"
             value={`${data.assessmentPassRate.passRate}%`}
             delta={`${data.assessmentPassRate.graded} graded`}
-            tone="teal"
+            tone="green"
           />
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -152,6 +168,7 @@ export function PmDashboard() {
                   <th className="pb-2 font-medium">Team</th>
                   <th className="pb-2 font-medium">Openings</th>
                   <th className="pb-2 font-medium">Active</th>
+                  <th className="pb-2 font-medium">Pipeline</th>
                   <th className="pb-2 font-medium">Status</th>
                 </tr>
               </thead>
@@ -166,6 +183,13 @@ export function PmDashboard() {
                     <td className="py-2 text-[var(--text-2)]">{r.openings}</td>
                     <td className="py-2 text-[var(--text-2)]">
                       {r.candidateCount}
+                    </td>
+                    <td className="py-2 text-xs text-[var(--text-3)]">
+                      <span className="text-[var(--amber)]">{r.pendingDocs} pending</span>
+                      {' · '}
+                      <span className="text-[var(--teal)]">{r.docsSubmitted} submitted</span>
+                      {' · '}
+                      <span className="text-[var(--green)]">{r.matched} matched</span>
                     </td>
                     <td className="py-2">
                       <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-xs text-[var(--teal)]">

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { DEMO_INVITE_TOKEN } from '@/lib/utils/constants';
 
 type Mode = 'login' | 'register';
 
@@ -168,6 +169,12 @@ export function LoginForm() {
               </button>
             ))}
           </div>
+          <a
+            href={`/apply/${DEMO_INVITE_TOKEN}`}
+            className="mt-2 block text-center text-xs text-[var(--violet)] hover:underline"
+          >
+            Test the candidate intake form →
+          </a>
         </div>
       )}
 

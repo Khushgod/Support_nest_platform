@@ -38,6 +38,8 @@ export const ROLE_HOME: Record<Role, string> = {
 export type RequisitionStatus = 'open' | 'closed' | 'on_hold';
 export type Neurodivergence = 'autistic' | 'adhd' | 'both' | 'other';
 export type CandidateStatus =
+  | 'pending_docs'
+  | 'docs_submitted'
   | 'applied'
   | 'matched'
   | 'assessing'

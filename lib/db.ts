@@ -25,7 +25,33 @@ function createDb(): Database.Database {
   const schema = fs.readFileSync(schemaPath, 'utf-8');
   database.exec(schema);
 
+  // Additive migrations for DBs created before the Bulk Import feature.
+  // (ALTER TABLE ADD COLUMN can't be guarded with IF NOT EXISTS, so we check
+  // table_info first.) Note: pre-existing CHECK constraints on Candidates.status
+  // are not rewritten here — rebuild the DB file to pick those up.
+  runColumnMigrations(database);
+
   return database;
+}
+
+/** Add columns that may be missing on databases predating the Bulk Import feature. */
+function runColumnMigrations(database: Database.Database): void {
+  const ensure = (table: string, column: string, ddl: string) => {
+    const cols = database
+      .prepare(`PRAGMA table_info(${table})`)
+      .all() as { name: string }[];
+    if (!cols.some((c) => c.name === column)) {
+      database.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+    }
+  };
+  ensure('Candidates', 'application_source', "application_source TEXT DEFAULT 'manual'");
+  ensure('Candidates', 'application_received_at', 'application_received_at TEXT');
+  ensure('Candidates', 'resume_received_at', 'resume_received_at TEXT');
+  ensure('Candidates', 'diagnostic_received_at', 'diagnostic_received_at TEXT');
+  ensure('Candidates', 'invite_token', 'invite_token TEXT');
+  ensure('Candidates', 'invite_token_expires_at', 'invite_token_expires_at TEXT');
+  ensure('Candidates', 'invite_token_used_at', 'invite_token_used_at TEXT');
+  ensure('Requisitions', 'external_posting_url', 'external_posting_url TEXT');
 }
 
 export const db: Database.Database = globalForDb.__db ?? createDb();

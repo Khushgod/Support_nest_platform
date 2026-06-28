@@ -14,13 +14,14 @@
  *   - HiringPhases reflecting each candidate's journey (with timestamps)
  *   - 5 Allyship modules (content arrives in Chunk 3)
  */
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/utils/auth';
 import { encryptFile, calculateHash } from '@/lib/file';
 import { ALLYSHIP_MODULES } from '@/lib/allyshipContent';
+import { DEMO_INVITE_TOKEN, DEMO_EXPIRED_TOKEN } from '@/lib/utils/constants';
 import {
   CandidateStatus,
   Neurodivergence,
@@ -42,6 +43,15 @@ function daysAgo(n: number): string {
     .toISOString()
     .replace('T', ' ')
     .slice(0, 19);
+}
+
+/** ISO timestamp `days` in the future (negative = past). Used for invite expiry. */
+function daysFromNow(days: number): string {
+  return new Date(Date.now() + days * 86_400_000).toISOString();
+}
+
+function randomBytesHex(): string {
+  return randomBytes(16).toString('hex');
 }
 
 const FIRST_NAMES = [
@@ -213,7 +223,7 @@ async function main() {
   }[] = [];
   // Encrypted files to write to disk after the DB transaction commits.
   const reportFileTasks: { relPath: string; buffer: Buffer }[] = [];
-  const demoCounts = { reports: 0, assessments: 0, results: 0, allyship: 0 };
+  const demoCounts = { reports: 0, assessments: 0, results: 0, allyship: 0, imported: 0 };
 
   const seed = db.transaction(() => {
     db.prepare('INSERT INTO Organizations (id, name) VALUES (?, ?)').run(orgId, ORG_NAME);
@@ -420,6 +430,56 @@ async function main() {
       insertProgress.run(randomUUID(), hrId, m.id, daysAgo(6), daysAgo(5));
       demoCounts.allyship++;
     }
+
+    // (d) Bulk import: a LinkedIn CSV batch for the Data Analyst req, with
+    //     candidates at each intake stage. Two use deterministic demo tokens so
+    //     the login screen can deep-link into the public intake form.
+    const dataAnalystReqId = requisitions[0].id;
+    const importBatchId = randomUUID();
+    db.prepare(
+      `INSERT INTO BulkImportBatches
+         (id, organization_id, requisition_id, uploaded_by, uploaded_at, filename,
+          row_count, imported_count, failed_count, duplicate_count)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      importBatchId, orgId, dataAnalystReqId, pmId, daysAgo(3),
+      'linkedin_export_data_analyst_june.csv', 25, 23, 0, 2
+    );
+
+    const importCandidates: {
+      first: string; last: string; email: string;
+      status: 'docs_submitted' | 'pending_docs';
+      nd: string | null; exp: number | null; token: string; expiryDays: number;
+    }[] = [
+      { first: 'Rohan', last: 'Nair', email: 'rohan.n@gmail.com', status: 'docs_submitted', nd: 'adhd', exp: 2, token: randomBytesHex(), expiryDays: 30 },
+      { first: 'Isha', last: 'Khanna', email: 'isha.k@outlook.com', status: 'docs_submitted', nd: 'autistic', exp: 4, token: randomBytesHex(), expiryDays: 30 },
+      { first: 'Meera', last: 'Thomas', email: 'meera.t@gmail.com', status: 'docs_submitted', nd: 'adhd', exp: 0, token: randomBytesHex(), expiryDays: 30 },
+      // Valid pending invite — login screen links to this one.
+      { first: 'Amir', last: 'Shah', email: 'amir.shah@yahoo.com', status: 'pending_docs', nd: null, exp: null, token: DEMO_INVITE_TOKEN, expiryDays: 30 },
+      // Expired pending invite — demonstrates the "link expired" state.
+      { first: 'Priti', last: 'Das', email: 'priti.d@rediff.com', status: 'pending_docs', nd: null, exp: null, token: DEMO_EXPIRED_TOKEN, expiryDays: -2 },
+    ];
+
+    const insertImportCand = db.prepare(
+      `INSERT INTO Candidates
+         (id, organization_id, first_name, last_name, email, neurodivergence,
+          years_experience, status, application_source, application_received_at,
+          invite_token, invite_token_expires_at, invite_token_used_at,
+          resume_received_at, diagnostic_received_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'csv_import', ?, ?, ?, ?, ?, ?, ?)`
+    );
+    importCandidates.forEach((c, i) => {
+      const candId = randomUUID();
+      const expiry = daysFromNow(c.expiryDays);
+      const usedAt = c.status === 'docs_submitted' ? daysAgo(2) : null;
+      insertImportCand.run(
+        candId, orgId, c.first, c.last, c.email, c.nd,
+        c.exp ?? 0, c.status, daysAgo(3), c.token, expiry, usedAt,
+        usedAt, usedAt, daysAgo(3)
+      );
+      insertPhase.run(randomUUID(), candId, dataAnalystReqId, 'apply', daysAgo(3), null);
+      demoCounts.imported++;
+    });
   });
   seed();
 
@@ -448,6 +508,7 @@ async function main() {
   console.log(`   diagnostic profiles: ${demoCounts.reports}${encKey ? '' : ' (DB only — no ENCRYPTION_KEY for files)'}`);
   console.log(`   assessments: ${demoCounts.assessments} (${demoCounts.results} assigned/graded)`);
   console.log(`   HR allyship progress: ${demoCounts.allyship}/5 modules done`);
+  console.log(`   bulk-import candidates: ${demoCounts.imported} (incl. 2 demo invite links)`);
 }
 
 main()

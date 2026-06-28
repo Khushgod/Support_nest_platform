@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS Requisitions (
   description     TEXT,
   openings        INTEGER NOT NULL DEFAULT 1,
   status          TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed','on_hold')),
+  external_posting_url TEXT,            -- e.g. the LinkedIn job posting this req mirrors
   created_by      TEXT REFERENCES Users(id) ON DELETE SET NULL,
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -46,14 +47,25 @@ CREATE TABLE IF NOT EXISTS Candidates (
   first_name       TEXT NOT NULL,
   last_name        TEXT NOT NULL,
   email            TEXT NOT NULL,
-  neurodivergence  TEXT NOT NULL CHECK (neurodivergence IN ('autistic','adhd','both','other')),
+  -- Nullable: candidates imported via CSV have no ND until they submit the form.
+  neurodivergence  TEXT CHECK (neurodivergence IS NULL OR neurodivergence IN ('autistic','adhd','both','other')),
   years_experience INTEGER NOT NULL DEFAULT 0,
+  -- pending_docs / docs_submitted are the pre-pipeline intake stages (Bulk Import).
   status           TEXT NOT NULL DEFAULT 'applied'
-                     CHECK (status IN ('applied','matched','assessing','interviewing','offered','rejected')),
+                     CHECK (status IN ('pending_docs','docs_submitted','applied','matched','assessing','interviewing','offered','rejected')),
+  -- Bulk-import intake fields.
+  application_source       TEXT DEFAULT 'manual',
+  application_received_at  TEXT,
+  resume_received_at       TEXT,
+  diagnostic_received_at   TEXT,
+  invite_token             TEXT UNIQUE,
+  invite_token_expires_at  TEXT,
+  invite_token_used_at     TEXT,
   created_at       TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_cand_org ON Candidates(organization_id);
+CREATE INDEX IF NOT EXISTS idx_cand_invite ON Candidates(invite_token);
 
 CREATE TABLE IF NOT EXISTS MatchScores (
   id                       TEXT PRIMARY KEY,
@@ -169,3 +181,21 @@ CREATE TABLE IF NOT EXISTS AuditLogs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_user ON AuditLogs(user_id);
+
+-- ── Bulk import (CSV candidate intake) ──────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS BulkImportBatches (
+  id              TEXT PRIMARY KEY,
+  organization_id TEXT NOT NULL REFERENCES Organizations(id) ON DELETE CASCADE,
+  requisition_id  TEXT NOT NULL REFERENCES Requisitions(id) ON DELETE CASCADE,
+  uploaded_by     TEXT REFERENCES Users(id) ON DELETE SET NULL,
+  uploaded_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  filename        TEXT NOT NULL,
+  row_count       INTEGER NOT NULL DEFAULT 0,
+  imported_count  INTEGER NOT NULL DEFAULT 0,
+  failed_count    INTEGER NOT NULL DEFAULT 0,
+  duplicate_count INTEGER NOT NULL DEFAULT 0,
+  error_log       TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_batch_req ON BulkImportBatches(requisition_id);

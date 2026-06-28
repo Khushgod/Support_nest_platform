@@ -14,6 +14,7 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   program_manager: [
     { label: 'Overview', href: '/dashboard' },
     { label: 'Requisitions', href: '/requisitions' },
+    { label: 'Import candidates', href: '/import' },
     { label: 'Candidates', href: '/candidates' },
     { label: 'Stakeholders', href: '/stakeholders' },
     { label: 'Inclusion ROI', href: '/roi' },

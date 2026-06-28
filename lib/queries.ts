@@ -90,9 +90,12 @@ export interface RequisitionRow {
   openings: number;
   status: string;
   candidateCount: number;
+  pendingDocs: number;
+  docsSubmitted: number;
+  matched: number;
 }
 
-/** Open requisitions with a count of currently-active candidates on each. */
+/** Open requisitions with active-candidate count + intake pipeline counts. */
 export function getRequisitions(
   orgId: string,
   requisitionId?: string
@@ -104,12 +107,38 @@ export function getRequisitions(
       `SELECT r.id, r.title, r.team, r.openings, r.status,
               (SELECT COUNT(DISTINCT h.candidate_id)
                FROM HiringPhases h
-               WHERE h.requisition_id = r.id AND h.exited_at IS NULL) AS candidateCount
+               WHERE h.requisition_id = r.id AND h.exited_at IS NULL) AS candidateCount,
+              (SELECT COUNT(DISTINCT c.id)
+               FROM Candidates c JOIN HiringPhases h ON h.candidate_id = c.id
+               WHERE h.requisition_id = r.id AND c.status = 'pending_docs') AS pendingDocs,
+              (SELECT COUNT(DISTINCT c.id)
+               FROM Candidates c JOIN HiringPhases h ON h.candidate_id = c.id
+               WHERE h.requisition_id = r.id AND c.status = 'docs_submitted') AS docsSubmitted,
+              (SELECT COUNT(DISTINCT m.candidate_id)
+               FROM MatchScores m WHERE m.requisition_id = r.id) AS matched
        FROM Requisitions r
        WHERE r.organization_id = ? ${where}
        ORDER BY r.created_at ASC`
     )
     .all(...params) as RequisitionRow[];
+}
+
+/** Pre-pipeline intake counts for the org (candidates awaiting / having submitted docs). */
+export function getIntakeMetrics(
+  orgId: string
+): { pendingDocs: number; docsSubmitted: number } {
+  const row = db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN status = 'pending_docs' THEN 1 ELSE 0 END) AS pendingDocs,
+         SUM(CASE WHEN status = 'docs_submitted' THEN 1 ELSE 0 END) AS docsSubmitted
+       FROM Candidates WHERE organization_id = ?`
+    )
+    .get(orgId) as { pendingDocs: number | null; docsSubmitted: number | null };
+  return {
+    pendingDocs: row.pendingDocs ?? 0,
+    docsSubmitted: row.docsSubmitted ?? 0,
+  };
 }
 
 export interface Stakeholder {

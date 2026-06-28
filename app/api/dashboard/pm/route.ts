@@ -8,6 +8,7 @@ import {
   getProgramHealth,
   getInclusionRoi,
   getAssessmentPassRate,
+  getIntakeMetrics,
 } from '@/lib/queries';
 
 export async function GET(req: NextRequest) {
@@ -23,5 +24,6 @@ export async function GET(req: NextRequest) {
     health: getProgramHealth(orgId),
     roi: getInclusionRoi(orgId),
     assessmentPassRate: getAssessmentPassRate(orgId),
+    intake: getIntakeMetrics(orgId),
   });
 }

@@ -7,6 +7,7 @@ import { ROLE_HOME, Role } from '@/lib/types';
 const ROLE_ROUTES: Record<string, Role[]> = {
   '/dashboard': ['program_manager'],
   '/requisitions': ['program_manager'],
+  '/import': ['program_manager'],
   '/candidates': ['program_manager'],
   '/stakeholders': ['program_manager'],
   '/roi': ['program_manager'],
@@ -62,6 +63,7 @@ export const config = {
   matcher: [
     '/dashboard/:path*',
     '/requisitions/:path*',
+    '/import/:path*',
     '/candidates/:path*',
     '/stakeholders/:path*',
     '/roi/:path*',

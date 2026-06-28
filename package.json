@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "dump": "tsx scripts/export-sample.ts",
+    "db:load": "tsx scripts/load-sample.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

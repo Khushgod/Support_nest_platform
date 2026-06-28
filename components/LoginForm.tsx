@@ -15,33 +15,22 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  // Shared login call used by the form and the quick demo buttons.
+  async function loginWith(loginEmail: string, loginPassword: string) {
     setError(null);
     setLoading(true);
-
-    const endpoint =
-      mode === 'login' ? '/api/auth/login' : '/api/auth/register';
-    const payload =
-      mode === 'login'
-        ? { email, password }
-        : { email, password, full_name: fullName };
-
     try {
-      const res = await fetch(endpoint, {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
       });
       const data = await res.json();
-
       if (!res.ok) {
         setError(data.error || 'Something went wrong');
         setLoading(false);
         return;
       }
-
-      // Redirect to the role-specific home returned by the API.
       router.push(data.redirectTo || '/dashboard');
       router.refresh();
     } catch {
@@ -49,6 +38,43 @@ export function LoginForm() {
       setLoading(false);
     }
   }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (mode === 'login') {
+      await loginWith(email, password);
+      return;
+    }
+
+    // Register flow.
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, full_name: fullName }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong');
+        setLoading(false);
+        return;
+      }
+      router.push(data.redirectTo || '/dashboard');
+      router.refresh();
+    } catch {
+      setError('Network error. Please try again.');
+      setLoading(false);
+    }
+  }
+
+  const DEMO_ACCOUNTS = [
+    { label: 'Program Manager', email: 'pm@acme.com' },
+    { label: 'Talent Acquisition', email: 'ta@acme.com' },
+    { label: 'Employee / HR', email: 'hr@acme.com' },
+  ];
 
   const inputClass =
     'w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--text)] placeholder-[var(--text-3)] focus:border-[var(--violet)] focus:outline-none';
@@ -123,6 +149,27 @@ export function LoginForm() {
           ? 'Sign in'
           : 'Create account'}
       </Button>
+
+      {mode === 'login' && (
+        <div className="rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3">
+          <p className="mb-2 text-center text-xs text-[var(--text-3)]">
+            Or jump straight into a demo role (password: <code>password</code>)
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {DEMO_ACCOUNTS.map((a) => (
+              <button
+                key={a.email}
+                type="button"
+                disabled={loading}
+                onClick={() => loginWith(a.email, 'password')}
+                className="rounded-md bg-[var(--surface-1)] px-2 py-2 text-xs font-medium text-[var(--text-2)] transition-colors hover:bg-[var(--violet)] hover:text-[#0E1018] disabled:opacity-50"
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <p className="text-center text-sm text-[var(--text-3)]">
         {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}{' '}

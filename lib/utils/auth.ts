@@ -35,6 +35,7 @@ export function verifyToken(token: string): AuthUser | null {
     const decoded = jwt.verify(token, getSecret()) as jwt.JwtPayload & AuthUser;
     return {
       id: decoded.id,
+      name: decoded.name,
       email: decoded.email,
       role: decoded.role,
       organization_id: decoded.organization_id,

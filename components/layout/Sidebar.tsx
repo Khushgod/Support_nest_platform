@@ -12,7 +12,7 @@ interface NavItem {
 // Role-scoped navigation. Roles only ever see their own routes (see CLAUDE.md).
 const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   program_manager: [
-    { label: 'Dashboard', href: '/dashboard' },
+    { label: 'Overview', href: '/dashboard' },
     { label: 'Requisitions', href: '/requisitions' },
     { label: 'Candidates', href: '/candidates' },
     { label: 'Stakeholders', href: '/stakeholders' },
@@ -20,17 +20,26 @@ const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   ],
   talent_acquisition: [
     { label: 'Pipeline', href: '/pipeline' },
-    { label: 'Genetranslate', href: '/genetranslate' },
+    { label: 'genetranslate', href: '/genetranslate' },
     { label: 'Assessments', href: '/assessments' },
-    { label: 'Interview Prep', href: '/interview-prep' },
+    { label: 'Interview prep', href: '/interview-prep' },
   ],
   employee_hr: [
-    { label: 'Allyship', href: '/allyship' },
-    { label: 'Modules', href: '/modules' },
+    { label: 'My training', href: '/allyship' },
+    { label: 'Module library', href: '/modules' },
     { label: 'Certificates', href: '/certificates' },
-    { label: 'My Team', href: '/my-team' },
+    { label: 'My team', href: '/my-team' },
   ],
 };
+
+function initials(name: string): string {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 export function Sidebar({ user }: { user: AuthUser }) {
   const pathname = usePathname();
@@ -69,13 +78,18 @@ export function Sidebar({ user }: { user: AuthUser }) {
 
       {/* Footer: user info + logout */}
       <div className="border-t border-[var(--border)] p-3">
-        <div className="mb-2 px-2">
-          <p className="truncate text-sm font-medium text-[var(--text)]">
-            {user.email}
-          </p>
-          <p className="text-xs text-[var(--text-3)]">
-            {ROLE_LABELS[user.role]}
-          </p>
+        <div className="mb-2 flex items-center gap-2 px-1">
+          <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[var(--surface-2)] text-xs font-semibold text-[var(--violet)]">
+            {initials(user.name)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-[var(--text)]">
+              {user.name}
+            </p>
+            <p className="truncate text-xs text-[var(--text-3)]">
+              {ROLE_LABELS[user.role]} · {user.email}
+            </p>
+          </div>
         </div>
         <form action="/api/auth/logout" method="post">
           <button

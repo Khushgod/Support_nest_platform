@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
-import { ROLE_HOME } from '@/lib/types';
 
 type Mode = 'login' | 'register';
 
@@ -42,9 +41,8 @@ export function LoginForm() {
         return;
       }
 
-      // Redirect to the role-specific home.
-      const home = ROLE_HOME[data.user.role as keyof typeof ROLE_HOME] || '/dashboard';
-      router.push(home);
+      // Redirect to the role-specific home returned by the API.
+      router.push(data.redirectTo || '/dashboard');
       router.refresh();
     } catch {
       setError('Network error. Please try again.');

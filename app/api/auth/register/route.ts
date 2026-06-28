@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { db } from '@/lib/db';
 import { hashPassword, signToken, AUTH_COOKIE } from '@/lib/utils/auth';
 import { isValidEmail, isValidPassword, isValidRole } from '@/lib/validators';
-import { AuthUser, Role } from '@/lib/types';
+import { AuthUser, Role, ROLE_HOME } from '@/lib/types';
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,13 +50,19 @@ export async function POST(req: NextRequest) {
 
     const authUser: AuthUser = {
       id: userId,
+      name: fullName,
       email,
       role,
       organization_id: orgId,
     };
     const token = signToken(authUser);
 
-    const res = NextResponse.json({ success: true, user: authUser });
+    const res = NextResponse.json({
+      success: true,
+      role,
+      redirectTo: ROLE_HOME[role] ?? '/dashboard',
+      user: authUser,
+    });
     res.cookies.set(AUTH_COOKIE, token, {
       httpOnly: true,
       sameSite: 'lax',

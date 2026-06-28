@@ -27,9 +27,9 @@ import {
 const ORG_NAME = 'Acme Corp';
 
 const TEST_USERS: { email: string; role: Role; full_name: string }[] = [
-  { email: 'pm@acme.com', role: 'program_manager', full_name: 'Priya Manager' },
-  { email: 'ta@acme.com', role: 'talent_acquisition', full_name: 'Tariq Acquire' },
-  { email: 'hr@acme.com', role: 'employee_hr', full_name: 'Hana Resource' },
+  { email: 'pm@acme.com', role: 'program_manager', full_name: 'Priya Rao' },
+  { email: 'ta@acme.com', role: 'talent_acquisition', full_name: 'Arjun Kapoor' },
+  { email: 'hr@acme.com', role: 'employee_hr', full_name: 'Sana Mehta' },
 ];
 
 // Days ago → UTC ISO timestamp string (datetime('now') compatible).

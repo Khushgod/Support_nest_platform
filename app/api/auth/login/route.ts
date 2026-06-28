@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { verifyPassword, signToken, AUTH_COOKIE } from '@/lib/utils/auth';
 import { isValidEmail } from '@/lib/validators';
-import { AuthUser } from '@/lib/types';
+import { AuthUser, ROLE_HOME } from '@/lib/types';
 
 interface UserRow {
   id: string;
@@ -10,6 +10,7 @@ interface UserRow {
   email: string;
   password_hash: string;
   role: AuthUser['role'];
+  full_name: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     const user = db
       .prepare(
-        'SELECT id, organization_id, email, password_hash, role FROM Users WHERE email = ?'
+        'SELECT id, organization_id, email, password_hash, role, full_name FROM Users WHERE email = ?'
       )
       .get(email) as UserRow | undefined;
 
@@ -42,13 +43,19 @@ export async function POST(req: NextRequest) {
 
     const authUser: AuthUser = {
       id: user.id,
+      name: user.full_name,
       email: user.email,
       role: user.role,
       organization_id: user.organization_id,
     };
     const token = signToken(authUser);
 
-    const res = NextResponse.json({ success: true, user: authUser });
+    const res = NextResponse.json({
+      success: true,
+      role: user.role,
+      redirectTo: ROLE_HOME[user.role] ?? '/dashboard',
+      user: authUser,
+    });
     res.cookies.set(AUTH_COOKIE, token, {
       httpOnly: true,
       sameSite: 'lax',

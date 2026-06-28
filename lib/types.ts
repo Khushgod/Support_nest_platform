@@ -14,6 +14,7 @@ export interface User {
 /** The shape stored inside the JWT and exposed on authenticated requests. */
 export interface AuthUser {
   id: string;
+  name: string;
   email: string;
   role: Role;
   organization_id: string;

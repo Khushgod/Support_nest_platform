@@ -22,8 +22,8 @@ export interface AuthUser {
 
 export const ROLE_LABELS: Record<Role, string> = {
   program_manager: 'Program Manager',
-  talent_acquisition: 'Talent Acquisition',
-  employee_hr: 'Employee / HR',
+  talent_acquisition: 'Talent Acquisition / HR',
+  employee_hr: 'Hired ND Talent',
 };
 
 /** Landing route for each role after login. */

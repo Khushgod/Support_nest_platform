@@ -6,8 +6,8 @@ import { MetricCard } from '@/components/ui/MetricCard';
 
 const ROLE_LABELS: Record<string, string> = {
   program_manager: 'Program Manager',
-  talent_acquisition: 'Talent Acquisition',
-  employee_hr: 'Employee / HR',
+  talent_acquisition: 'Talent Acquisition / HR',
+  employee_hr: 'Hired ND Talent',
 };
 const ND_LABELS: Record<string, string> = {
   autistic: 'Autistic',

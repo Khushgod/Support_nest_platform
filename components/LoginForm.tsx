@@ -73,8 +73,8 @@ export function LoginForm() {
 
   const DEMO_ACCOUNTS = [
     { label: 'Program Manager', email: 'pm@acme.com' },
-    { label: 'Talent Acquisition', email: 'ta@acme.com' },
-    { label: 'Employee / HR', email: 'hr@acme.com' },
+    { label: 'Talent Acq. / HR', email: 'ta@acme.com' },
+    { label: 'Hired ND Talent', email: 'hr@acme.com' },
   ];
 
   const inputClass =

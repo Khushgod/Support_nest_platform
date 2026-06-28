@@ -15,8 +15,11 @@
  *   - 5 Allyship modules (content arrives in Chunk 3)
  */
 import { randomUUID } from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/utils/auth';
+import { encryptFile, calculateHash } from '@/lib/file';
 import { ALLYSHIP_MODULES } from '@/lib/allyshipContent';
 import {
   CandidateStatus,
@@ -120,6 +123,59 @@ const PHASE_SEQUENCE: PhaseName[] = [
   'apply', 'match', 'assess', 'interview', 'onboard', 'thrive',
 ];
 
+// Sample genetranslate profiles (same shape lib/genetranslate.js produces).
+const DEMO_PROFILES = [
+  {
+    neurodivergence: 'autistic',
+    traits: ['Attention to detail', 'Pattern recognition', 'Deep focus'],
+    strengths: ['Systematic thinking', 'Consistency', 'Quality orientation'],
+    accommodations: ['Quiet space for focus', 'Written async updates', 'Clear, structured tasks'],
+    workStyleProfile: {
+      summary: 'Prefers structured tasks with clear scope and predictable routines.',
+      communication: 'Prefers written briefs over verbal; may take language literally.',
+      environment: 'Low-sensory, quiet space supports sustained deep work.',
+    },
+    confidence: 0.86,
+  },
+  {
+    neurodivergence: 'adhd',
+    traits: ['Hyperfocus', 'Creative problem-solving', 'High energy'],
+    strengths: ['Rapid ideation', 'Adaptability', 'Big-picture thinking'],
+    accommodations: ['Flexible deadlines', 'Task chunking', 'Movement breaks'],
+    workStyleProfile: {
+      summary: 'Thrives on varied, stimulating work and short feedback loops.',
+      communication: 'Benefits from concise, prioritized asks and frequent check-ins.',
+      environment: 'Flexible scheduling and the option to move helps sustain attention.',
+    },
+    confidence: 0.82,
+  },
+  {
+    neurodivergence: 'both',
+    traits: ['Attention to detail', 'Hyperfocus', 'Pattern recognition'],
+    strengths: ['Systematic thinking', 'Creative problem-solving', 'Sustained focus'],
+    accommodations: ['Quiet space', 'Task chunking', 'Written + flexible updates'],
+    workStyleProfile: {
+      summary: 'Combines structured depth with bursts of creative energy.',
+      communication: 'Clear written scope plus short, frequent check-ins works best.',
+      environment: 'Low-sensory space with flexible pacing.',
+    },
+    confidence: 0.84,
+  },
+];
+
+// Read ENCRYPTION_KEY (tsx doesn't auto-load .env.local). Returns null if absent.
+function loadEncryptionKey(): string | null {
+  if (process.env.ENCRYPTION_KEY) return process.env.ENCRYPTION_KEY;
+  try {
+    const env = fs.readFileSync(path.join(process.cwd(), '.env.local'), 'utf8');
+    const m = env.match(/^ENCRYPTION_KEY=(.*)$/m);
+    if (m) return m[1].trim();
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 async function main() {
   const passwordHash = await hashPassword('password');
 
@@ -147,6 +203,17 @@ async function main() {
   ];
 
   const specs = buildCandidateSpecs();
+  const encKey = loadEncryptionKey();
+
+  const candidateRecords: {
+    id: string;
+    name: string;
+    status: CandidateStatus;
+    reqId: string;
+  }[] = [];
+  // Encrypted files to write to disk after the DB transaction commits.
+  const reportFileTasks: { relPath: string; buffer: Buffer }[] = [];
+  const demoCounts = { reports: 0, assessments: 0, results: 0, allyship: 0 };
 
   const seed = db.transaction(() => {
     db.prepare('INSERT INTO Organizations (id, name) VALUES (?, ?)').run(orgId, ORG_NAME);
@@ -194,6 +261,12 @@ async function main() {
         `${first.toLowerCase()}.${last.toLowerCase()}@example.com`,
         nd, years, spec.status, daysAgo(spec.appliedDaysAgo)
       );
+      candidateRecords.push({
+        id: candId,
+        name: `${first} ${last}`,
+        status: spec.status,
+        reqId: req.id,
+      });
 
       // MatchScore (skip pure applicants — matching happens at the match phase).
       if (spec.scored) {
@@ -252,8 +325,110 @@ async function main() {
         m.durationMinutes, m.contentHtml ?? null, m.order
       );
     }
+
+    // ── Demo extras so a fresh load shows every feature ──────────────────────
+    const taId = userIds.talent_acquisition;
+    const pmId = userIds.program_manager;
+    const hrId = userIds.employee_hr;
+
+    // (a) genetranslate: attach parsed diagnostic profiles to 3 active candidates.
+    const activeForReports = candidateRecords
+      .filter((c) => ['matched', 'assessing', 'interviewing'].includes(c.status))
+      .slice(0, 3);
+    const insertReport = db.prepare(
+      `INSERT INTO DiagnosticReports
+         (id, candidate_id, file_path, original_name, file_size, file_hash, parsed_profile, uploaded_by, uploaded_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    activeForReports.forEach((c, idx) => {
+      const profile = DEMO_PROFILES[idx % DEMO_PROFILES.length];
+      const fileId = randomUUID();
+      const relPath = `uploads/${orgId}/${c.id}/${fileId}.enc`;
+      const plaintext = Buffer.from(
+        `Diagnostic summary (demo). Assessed profile: ${profile.neurodivergence}. ` +
+          `Strengths: ${profile.strengths.join(', ')}.`
+      );
+      insertReport.run(
+        randomUUID(), c.id, relPath, 'diagnostic-report.pdf',
+        plaintext.length, calculateHash(plaintext),
+        JSON.stringify(profile), taId, daysAgo(9 - idx)
+      );
+      // Keep the candidate's neurodivergence consistent with the profile.
+      db.prepare('UPDATE Candidates SET neurodivergence = ? WHERE id = ?').run(
+        profile.neurodivergence, c.id
+      );
+      if (encKey) {
+        reportFileTasks.push({ relPath, buffer: encryptFile(plaintext, encKey) });
+      }
+      demoCounts.reports++;
+    });
+
+    // (b) Assessment: a Data Analyst skill check, assigned to 2 candidates,
+    //     one graded (so the PM pass-rate metric + TA status both show data).
+    const asmId = randomUUID();
+    const q = [
+      { id: randomUUID(), type: 'multiple-choice', prompt: 'Next in the sequence: 2, 4, 8, 16, ?', options: ['24', '32', '30'], correct: 1 },
+      { id: randomUUID(), type: 'multiple-choice', prompt: 'Which is NOT a database?', options: ['PostgreSQL', 'SQLite', 'Photoshop'], correct: 2 },
+      { id: randomUUID(), type: 'multiple-choice', prompt: 'Median of 2, 4, 9?', options: ['4', '5', '9'], correct: 0 },
+    ];
+    db.prepare(
+      `INSERT INTO SkillAssessments
+         (id, organization_id, requisition_id, role_title, assessment_json, created_by, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      asmId, orgId, requisitions[0].id, 'Data Analyst',
+      JSON.stringify({
+        title: 'Data Analyst · Pattern Recognition',
+        description: 'Tests analytical reasoning and data fundamentals.',
+        questions: q,
+      }),
+      pmId, daysAgo(10)
+    );
+    demoCounts.assessments++;
+
+    const insertResult = db.prepare(
+      `INSERT INTO CandidateAssessmentResults
+         (id, candidate_id, assessment_id, status, answers, score, assigned_by, assigned_at, completed_at, graded_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    if (activeForReports[0]) {
+      insertResult.run(
+        randomUUID(), activeForReports[0].id, asmId, 'graded',
+        JSON.stringify({ [q[0].id]: 1, [q[1].id]: 2, [q[2].id]: 0 }),
+        85, taId, daysAgo(8), daysAgo(7), daysAgo(7)
+      );
+      demoCounts.results++;
+    }
+    if (activeForReports[1]) {
+      insertResult.run(
+        randomUUID(), activeForReports[1].id, asmId, 'assigned',
+        null, null, taId, daysAgo(5), null, null
+      );
+      demoCounts.results++;
+    }
+
+    // (c) Allyship: HR user has completed modules 1–4, so certification is
+    //     unlocked and "Ready" (one click in the UI to earn the certificate).
+    const modRows = db
+      .prepare('SELECT id, "order" AS ord FROM AllyshipModules WHERE organization_id = ? ORDER BY "order"')
+      .all(orgId) as { id: string; ord: number }[];
+    const insertProgress = db.prepare(
+      `INSERT INTO UserAllyshipProgress (id, user_id, module_id, started_at, completed_at)
+       VALUES (?, ?, ?, ?, ?)`
+    );
+    for (const m of modRows.filter((m) => m.ord <= 4)) {
+      insertProgress.run(randomUUID(), hrId, m.id, daysAgo(6), daysAgo(5));
+      demoCounts.allyship++;
+    }
   });
   seed();
+
+  // Write encrypted report files to disk (best-effort; needs ENCRYPTION_KEY).
+  for (const t of reportFileTasks) {
+    const abs = path.join(process.cwd(), t.relPath);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, t.buffer);
+  }
 
   const counts = {
     requisitions: (db.prepare('SELECT COUNT(*) c FROM Requisitions').get() as any).c,
@@ -270,6 +445,9 @@ async function main() {
   console.log(`   match scores: ${counts.matchScores}`);
   console.log(`   hiring phases: ${counts.phases}`);
   console.log(`   allyship modules: ${counts.modules}`);
+  console.log(`   diagnostic profiles: ${demoCounts.reports}${encKey ? '' : ' (DB only — no ENCRYPTION_KEY for files)'}`);
+  console.log(`   assessments: ${demoCounts.assessments} (${demoCounts.results} assigned/graded)`);
+  console.log(`   HR allyship progress: ${demoCounts.allyship}/5 modules done`);
 }
 
 main()

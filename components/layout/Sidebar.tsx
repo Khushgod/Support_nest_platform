@@ -44,6 +44,8 @@ function initials(name: string): string {
 export function Sidebar({ user }: { user: AuthUser }) {
   const pathname = usePathname();
   const nav = NAV_BY_ROLE[user.role] ?? [];
+  // Fall back to the email local-part if name is missing (e.g. an old token).
+  const displayName = user.name || user.email?.split('@')[0] || 'User';
 
   return (
     <aside className="flex h-screen w-60 flex-col border-r border-[var(--border)] bg-[var(--surface-1)]">
@@ -80,11 +82,11 @@ export function Sidebar({ user }: { user: AuthUser }) {
       <div className="border-t border-[var(--border)] p-3">
         <div className="mb-2 flex items-center gap-2 px-1">
           <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[var(--surface-2)] text-xs font-semibold text-[var(--violet)]">
-            {initials(user.name)}
+            {initials(displayName)}
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-[var(--text)]">
-              {user.name}
+              {displayName}
             </p>
             <p className="truncate text-xs text-[var(--text-3)]">
               {ROLE_LABELS[user.role]} · {user.email}

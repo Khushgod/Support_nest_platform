@@ -42,7 +42,9 @@ export function Topbar({ user }: { user: AuthUser }) {
         <h1 className="text-lg font-semibold text-[var(--text)]">{title}</h1>
       </div>
       <div className="text-right">
-        <p className="text-sm text-[var(--text)]">{user.name}</p>
+        <p className="text-sm text-[var(--text)]">
+          {user.name || user.email?.split('@')[0] || 'User'}
+        </p>
         <p className="text-xs text-[var(--text-3)]">{ROLE_LABELS[user.role]}</p>
       </div>
     </header>

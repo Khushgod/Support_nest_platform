@@ -1,5 +1,5 @@
-import { Placeholder } from '@/components/features/Placeholder';
+import { StakeholdersView } from '@/components/features/PmViews';
 
 export default function StakeholdersPage() {
-  return <Placeholder title="Stakeholders" />;
+  return <StakeholdersView />;
 }

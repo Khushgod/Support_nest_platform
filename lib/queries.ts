@@ -195,15 +195,19 @@ export interface PipelineCandidate {
   years_experience: number;
   status: string;
   matchScore: number | null;
-  assessmentStatus: 'not_started' | 'in_progress' | 'completed';
+  assessmentStatus: 'not_started' | 'assigned' | 'submitted' | 'graded';
+  assessmentScore: number | null;
   requisitionId: string | null;
   requisitionTitle: string | null;
   hasReport: boolean;
 }
 
-/** Active pipeline (excludes rejected) with match score + current requisition. */
+/**
+ * Active pipeline (excludes rejected) with match score, current requisition,
+ * and real assessment status. Sorted by match score (highest first).
+ */
 export function getPipelineCandidates(orgId: string): PipelineCandidate[] {
-  return db
+  const rows = db
     .prepare(
       `SELECT
          c.id, c.first_name, c.last_name, c.neurodivergence,
@@ -214,39 +218,90 @@ export function getPipelineCandidates(orgId: string): PipelineCandidate[] {
             WHERE h.candidate_id = c.id AND h.exited_at IS NULL
             ORDER BY h.entered_at DESC LIMIT 1) AS requisitionId,
          (SELECT EXISTS(SELECT 1 FROM DiagnosticReports d
-            WHERE d.candidate_id = c.id AND d.deleted_at IS NULL)) AS hasReport
+            WHERE d.candidate_id = c.id AND d.deleted_at IS NULL)) AS hasReport,
+         (SELECT r.status FROM CandidateAssessmentResults r
+            WHERE r.candidate_id = c.id ORDER BY r.assigned_at DESC LIMIT 1) AS assessmentStatus,
+         (SELECT r.score FROM CandidateAssessmentResults r
+            WHERE r.candidate_id = c.id ORDER BY r.assigned_at DESC LIMIT 1) AS assessmentScore
        FROM Candidates c
        WHERE c.organization_id = ?
          AND c.status IN ('applied','matched','assessing','interviewing')
+       ORDER BY matchScore DESC NULLS LAST, c.created_at DESC`
+    )
+    .all(orgId) as any[];
+
+  return rows.map((row) => {
+    const reqTitle = row.requisitionId
+      ? (db
+          .prepare('SELECT title FROM Requisitions WHERE id = ?')
+          .get(row.requisitionId) as { title: string } | undefined)?.title ?? null
+      : null;
+    return {
+      id: row.id,
+      first_name: row.first_name,
+      last_name: row.last_name,
+      neurodivergence: row.neurodivergence,
+      years_experience: row.years_experience,
+      status: row.status,
+      matchScore: row.matchScore ?? null,
+      assessmentStatus: (row.assessmentStatus ?? 'not_started') as
+        PipelineCandidate['assessmentStatus'],
+      assessmentScore: row.assessmentScore ?? null,
+      requisitionId: row.requisitionId ?? null,
+      requisitionTitle: reqTitle,
+      hasReport: Boolean(row.hasReport),
+    };
+  });
+}
+
+export interface OrgCandidateRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  neurodivergence: string;
+  years_experience: number;
+  status: string;
+  phase: string | null;
+  matchScore: number | null;
+}
+
+/** All candidates in the org with their current phase + best match score (PM view). */
+export function getOrgCandidates(orgId: string): OrgCandidateRow[] {
+  return db
+    .prepare(
+      `SELECT c.id, c.first_name, c.last_name, c.neurodivergence,
+              c.years_experience, c.status,
+              (SELECT h.phase_name FROM HiringPhases h
+                 WHERE h.candidate_id = c.id AND h.exited_at IS NULL
+                 ORDER BY h.entered_at DESC LIMIT 1) AS phase,
+              (SELECT MAX(m.combined_score) FROM MatchScores m
+                 WHERE m.candidate_id = c.id) AS matchScore
+       FROM Candidates c
+       WHERE c.organization_id = ?
        ORDER BY c.created_at DESC`
     )
-    .all(orgId)
-    .map((row: any) => {
-      const reqTitle = row.requisitionId
-        ? (db
-            .prepare('SELECT title FROM Requisitions WHERE id = ?')
-            .get(row.requisitionId) as { title: string } | undefined)?.title ?? null
-        : null;
-      const assessmentStatus: PipelineCandidate['assessmentStatus'] =
-        row.status === 'assessing'
-          ? 'in_progress'
-          : row.status === 'interviewing' || row.status === 'offered'
-            ? 'completed'
-            : 'not_started';
-      return {
-        id: row.id,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        neurodivergence: row.neurodivergence,
-        years_experience: row.years_experience,
-        status: row.status,
-        matchScore: row.matchScore ?? null,
-        assessmentStatus,
-        requisitionId: row.requisitionId ?? null,
-        requisitionTitle: reqTitle,
-        hasReport: Boolean(row.hasReport),
-      };
-    });
+    .all(orgId) as OrgCandidateRow[];
+}
+
+/** Skill-assessment pass rate (>=60) across graded results in the org. */
+export function getAssessmentPassRate(
+  orgId: string
+): { graded: number; passRate: number } | null {
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS graded,
+              SUM(CASE WHEN r.score >= 60 THEN 1 ELSE 0 END) AS passed
+       FROM CandidateAssessmentResults r
+       JOIN Candidates c ON c.id = r.candidate_id
+       WHERE c.organization_id = ? AND r.status = 'graded' AND r.score IS NOT NULL`
+    )
+    .get(orgId) as { graded: number; passed: number | null };
+
+  if (!row.graded) return null;
+  return {
+    graded: row.graded,
+    passRate: Math.round(((row.passed ?? 0) / row.graded) * 100),
+  };
 }
 
 // ── Employee / HR (allyship) ─────────────────────────────────────────────────

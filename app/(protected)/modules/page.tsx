@@ -1,5 +1,5 @@
-import { Placeholder } from '@/components/features/Placeholder';
+import { ModulesView } from '@/components/features/ModulesView';
 
 export default function ModulesPage() {
-  return <Placeholder title="Module library" />;
+  return <ModulesView />;
 }

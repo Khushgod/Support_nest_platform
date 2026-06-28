@@ -44,6 +44,7 @@ interface PmData {
     retentionPct: number;
     avgMatchScore: number;
   };
+  assessmentPassRate: { graded: number; passRate: number } | null;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -124,6 +125,17 @@ export function PmDashboard() {
           tone="green"
         />
       </div>
+
+      {data.assessmentPassRate && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <MetricCard
+            label="Skill assessment pass rate"
+            value={`${data.assessmentPassRate.passRate}%`}
+            delta={`${data.assessmentPassRate.graded} graded`}
+            tone="teal"
+          />
+        </div>
+      )}
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

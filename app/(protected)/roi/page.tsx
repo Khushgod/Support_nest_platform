@@ -1,5 +1,5 @@
-import { Placeholder } from '@/components/features/Placeholder';
+import { RoiView } from '@/components/features/PmViews';
 
 export default function RoiPage() {
-  return <Placeholder title="Inclusion ROI" />;
+  return <RoiView />;
 }

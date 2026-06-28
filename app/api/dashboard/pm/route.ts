@@ -7,6 +7,7 @@ import {
   getStakeholders,
   getProgramHealth,
   getInclusionRoi,
+  getAssessmentPassRate,
 } from '@/lib/queries';
 
 export async function GET(req: NextRequest) {
@@ -21,5 +22,6 @@ export async function GET(req: NextRequest) {
     stakeholders: getStakeholders(orgId),
     health: getProgramHealth(orgId),
     roi: getInclusionRoi(orgId),
+    assessmentPassRate: getAssessmentPassRate(orgId),
   });
 }

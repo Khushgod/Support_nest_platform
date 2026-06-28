@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { db } from '@/lib/db';
 import { requireRole } from '@/lib/middleware/auth';
 import { encryptFile, calculateHash, getEncryptionKey } from '@/lib/file';
+import { parseReport } from '@/lib/genetranslate';
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED = {
@@ -37,8 +39,12 @@ export async function POST(req: NextRequest) {
 
     // Candidate must belong to the uploader's organization.
     const candidate = db
-      .prepare('SELECT id FROM Candidates WHERE id = ? AND organization_id = ?')
-      .get(candidateId, auth.organization_id) as { id: string } | undefined;
+      .prepare(
+        'SELECT id, neurodivergence FROM Candidates WHERE id = ? AND organization_id = ?'
+      )
+      .get(candidateId, auth.organization_id) as
+      | { id: string; neurodivergence: string }
+      | undefined;
     if (!candidate) {
       return NextResponse.json({ error: 'Candidate not found' }, { status: 404 });
     }
@@ -86,12 +92,49 @@ export async function POST(req: NextRequest) {
        VALUES (?, ?, 'uploaded_diagnostic_report', 'DiagnosticReports', ?)`
     ).run(randomUUID(), auth.id, reportId);
 
+    // genetranslate: parse the report into a PII-free profile. We parse from a
+    // short-lived temp copy of the plaintext, then delete it immediately.
+    let parsedProfile: unknown = null;
+    const ext = file.name.toLowerCase().endsWith('.docx') ? '.docx' : '.pdf';
+    const tmpPath = path.join(os.tmpdir(), `gt-${fileId}${ext}`);
+    try {
+      fs.writeFileSync(tmpPath, buffer);
+      parsedProfile = await parseReport(tmpPath, {
+        hint: candidate.neurodivergence as
+          | 'autistic'
+          | 'adhd'
+          | 'both'
+          | 'other',
+      });
+      db.prepare(
+        'UPDATE DiagnosticReports SET parsed_profile = ? WHERE id = ?'
+      ).run(JSON.stringify(parsedProfile), reportId);
+
+      // Keep the candidate's neurodivergence in sync with the parsed result.
+      const nd = (parsedProfile as { neurodivergence?: string })?.neurodivergence;
+      if (nd && ['autistic', 'adhd', 'both', 'other'].includes(nd)) {
+        db.prepare('UPDATE Candidates SET neurodivergence = ? WHERE id = ?').run(
+          nd,
+          candidateId
+        );
+      }
+    } catch (err) {
+      console.error('genetranslate parse error:', (err as Error).message);
+    } finally {
+      try {
+        if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+      } catch {
+        /* ignore */
+      }
+    }
+
     return NextResponse.json({
       success: true,
       reportId,
       fileName: file.name,
       uploadedAt,
       fileSize: file.size,
+      parsedProfile,
     });
   } catch (error) {
     console.error('upload error:', (error as Error).message);

@@ -17,6 +17,7 @@
 import { randomUUID } from 'crypto';
 import { db } from '@/lib/db';
 import { hashPassword } from '@/lib/utils/auth';
+import { ALLYSHIP_MODULES } from '@/lib/allyshipContent';
 import {
   CandidateStatus,
   Neurodivergence,
@@ -240,21 +241,16 @@ async function main() {
       }
     });
 
-    // Allyship modules (content filled in Chunk 3).
-    const modules = [
-      { slug: 'foundations', title: 'Foundations of Neurodiversity', duration: 25, order: 1 },
-      { slug: 'communication', title: 'Inclusive Communication', duration: 30, order: 2 },
-      { slug: 'accommodation', title: 'Workplace Accommodations', duration: 20, order: 3 },
-      { slug: 'feedback', title: 'Giving Effective Feedback', duration: 25, order: 4 },
-      { slug: 'certification', title: 'Allyship Certification', duration: 40, order: 5 },
-    ];
+    // Allyship modules — metadata sourced from lib/allyshipContent.ts.
     const insertModule = db.prepare(
       `INSERT INTO AllyshipModules (id, organization_id, slug, title, description, duration_minutes, content_html, "order")
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     );
-    for (const m of modules) {
-      insertModule.run(randomUUID(), orgId, m.slug, m.title,
-        `${m.title} — coming soon.`, m.duration, null, m.order);
+    for (const m of ALLYSHIP_MODULES) {
+      insertModule.run(
+        randomUUID(), orgId, m.slug, m.title, m.description,
+        m.durationMinutes, m.contentHtml ?? null, m.order
+      );
     }
   });
   seed();

@@ -1,5 +1,5 @@
-import { Placeholder } from '@/components/features/Placeholder';
+import { GenetranslateView } from '@/components/features/GenetranslateView';
 
 export default function GenetranslatePage() {
-  return <Placeholder title="genetranslate" />;
+  return <GenetranslateView />;
 }

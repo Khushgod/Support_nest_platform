@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { FileUpload } from '@/components/FileUpload';
+import { GenetranslatePanel, NeuroProfile } from '@/components/GenetranslatePanel';
 
 interface PipelineCandidate {
   id: string;
@@ -13,7 +14,8 @@ interface PipelineCandidate {
   years_experience: number;
   status: string;
   matchScore: number | null;
-  assessmentStatus: 'not_started' | 'in_progress' | 'completed';
+  assessmentStatus: 'not_started' | 'assigned' | 'submitted' | 'graded';
+  assessmentScore: number | null;
   requisitionId: string | null;
   requisitionTitle: string | null;
   hasReport: boolean;
@@ -40,8 +42,9 @@ const ASSESSMENT_BADGE: Record<
   { label: string; color: string }
 > = {
   not_started: { label: 'Not started', color: 'var(--text-3)' },
-  in_progress: { label: 'In progress', color: 'var(--amber)' },
-  completed: { label: 'Completed', color: 'var(--teal)' },
+  assigned: { label: '🔵 Assigned', color: 'var(--violet)' },
+  submitted: { label: '🟡 Submitted', color: 'var(--amber)' },
+  graded: { label: '✅ Graded', color: 'var(--teal)' },
 };
 
 export function TaPipeline() {
@@ -49,6 +52,8 @@ export function TaPipeline() {
   const [error, setError] = useState<string | null>(null);
   const [activeReq, setActiveReq] = useState<string>('all');
   const [uploadFor, setUploadFor] = useState<PipelineCandidate | null>(null);
+  const [parsed, setParsed] = useState<NeuroProfile | null>(null);
+  const [parsing, setParsing] = useState(false);
 
   function load() {
     fetch('/api/pipeline/candidates')
@@ -61,6 +66,12 @@ export function TaPipeline() {
   }
 
   useEffect(load, []);
+
+  function closeUpload() {
+    setUploadFor(null);
+    setParsed(null);
+    setParsing(false);
+  }
 
   if (error) return <p className="p-6 text-[var(--rose)]">{error}</p>;
   if (!data) return <p className="p-6 text-[var(--text-3)]">Loading…</p>;
@@ -161,6 +172,11 @@ export function TaPipeline() {
                   </td>
                   <td className="py-2">
                     <span style={{ color: badge.color }}>{badge.label}</span>
+                    {c.assessmentScore != null && (
+                      <span className="ml-1 text-[var(--violet)]">
+                        {c.assessmentScore}%
+                      </span>
+                    )}
                   </td>
                   <td className="py-2">
                     {c.hasReport ? (
@@ -198,35 +214,55 @@ export function TaPipeline() {
       {/* Upload modal */}
       {uploadFor && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setUploadFor(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4"
+          onClick={closeUpload}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] p-6"
+            className={`w-full ${parsed ? 'max-w-3xl' : 'max-w-md'} rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] p-6`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-[var(--text)]">
-                Upload diagnostic report
+                {parsed ? 'genetranslate profile' : 'Upload diagnostic report'}
               </h2>
               <button
-                onClick={() => setUploadFor(null)}
+                onClick={closeUpload}
                 className="text-[var(--text-3)] hover:text-[var(--text)]"
               >
                 ✕
               </button>
             </div>
-            <p className="mb-4 text-sm text-[var(--text-3)]">
-              For {uploadFor.first_name} {uploadFor.last_name}. Files are
-              encrypted at rest.
-            </p>
-            <FileUpload
-              candidateId={uploadFor.id}
-              onUploaded={() => {
-                load();
-                setTimeout(() => setUploadFor(null), 1200);
-              }}
-            />
+
+            {parsed ? (
+              <>
+                <GenetranslatePanel profile={parsed} />
+                <div className="mt-4 flex justify-end">
+                  <Button onClick={closeUpload}>Done</Button>
+                </div>
+              </>
+            ) : parsing ? (
+              <p className="py-8 text-center text-sm text-[var(--text-2)]">
+                genetranslate is parsing…
+              </p>
+            ) : (
+              <>
+                <p className="mb-4 text-sm text-[var(--text-3)]">
+                  For {uploadFor.first_name} {uploadFor.last_name}. Files are
+                  encrypted at rest, then parsed into a PII-free profile.
+                </p>
+                <FileUpload
+                  candidateId={uploadFor.id}
+                  onUploaded={(result) => {
+                    setParsing(true);
+                    load();
+                    if (result?.parsedProfile) {
+                      setParsed(result.parsedProfile as NeuroProfile);
+                    }
+                    setParsing(false);
+                  }}
+                />
+              </>
+            )}
           </div>
         </div>
       )}

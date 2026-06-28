@@ -91,3 +91,17 @@ export const NEURODIVERGENCE_LABELS: Record<Neurodivergence, string> = {
   both: 'Autistic + ADHD',
   other: 'Other',
 };
+
+/** PII-free profile produced by genetranslate. */
+export interface NeuroProfile {
+  neurodivergence: Neurodivergence;
+  traits: string[];
+  strengths: string[];
+  accommodations: string[];
+  workStyleProfile: {
+    summary: string;
+    communication: string;
+    environment: string;
+  };
+  confidence: number;
+}

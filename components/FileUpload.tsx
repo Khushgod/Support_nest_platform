@@ -21,7 +21,7 @@ export function FileUpload({
   onUploaded,
 }: {
   candidateId: string;
-  onUploaded?: () => void;
+  onUploaded?: (result: any) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -70,7 +70,13 @@ export function FileUpload({
         setSuccess(true);
         setFile(null);
         setProgress(100);
-        onUploaded?.();
+        let result: unknown = null;
+        try {
+          result = JSON.parse(xhr.responseText);
+        } catch {
+          /* ignore */
+        }
+        onUploaded?.(result);
       } else {
         try {
           setError(JSON.parse(xhr.responseText).error || 'Upload failed');

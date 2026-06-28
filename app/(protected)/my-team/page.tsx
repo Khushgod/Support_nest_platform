@@ -1,5 +1,5 @@
-import { Placeholder } from '@/components/features/Placeholder';
+import { MyTeamView } from '@/components/features/MyTeamView';
 
 export default function MyTeamPage() {
-  return <Placeholder title="My team" />;
+  return <MyTeamView />;
 }

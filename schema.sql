@@ -101,7 +101,8 @@ CREATE INDEX IF NOT EXISTS idx_report_cand ON DiagnosticReports(candidate_id);
 
 CREATE TABLE IF NOT EXISTS SkillAssessments (
   id              TEXT PRIMARY KEY,
-  requisition_id  TEXT REFERENCES Requisitions(id) ON DELETE CASCADE,
+  organization_id TEXT REFERENCES Organizations(id) ON DELETE CASCADE,
+  requisition_id  TEXT REFERENCES Requisitions(id) ON DELETE SET NULL,
   role_title      TEXT NOT NULL,
   assessment_json TEXT NOT NULL,
   created_by      TEXT REFERENCES Users(id) ON DELETE SET NULL,
@@ -112,9 +113,16 @@ CREATE TABLE IF NOT EXISTS CandidateAssessmentResults (
   id            TEXT PRIMARY KEY,
   candidate_id  TEXT NOT NULL REFERENCES Candidates(id) ON DELETE CASCADE,
   assessment_id TEXT NOT NULL REFERENCES SkillAssessments(id) ON DELETE CASCADE,
+  status        TEXT NOT NULL DEFAULT 'assigned'
+                  CHECK (status IN ('assigned','submitted','graded')),
   answers       TEXT,
   score         REAL,
-  completed_at  TEXT
+  feedback      TEXT,
+  assigned_by   TEXT REFERENCES Users(id) ON DELETE SET NULL,
+  assigned_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  completed_at  TEXT,
+  graded_at     TEXT,
+  UNIQUE (candidate_id, assessment_id)
 );
 
 CREATE TABLE IF NOT EXISTS InterviewPrepModules (

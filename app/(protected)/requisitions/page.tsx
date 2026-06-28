@@ -1,5 +1,5 @@
-import { Placeholder } from '@/components/features/Placeholder';
+import { RequisitionsView } from '@/components/features/PmViews';
 
 export default function RequisitionsPage() {
-  return <Placeholder title="Requisitions" />;
+  return <RequisitionsView />;
 }

@@ -1,5 +1,5 @@
-import { Placeholder } from '@/components/features/Placeholder';
+import { CandidatesView } from '@/components/features/PmViews';
 
 export default function CandidatesPage() {
-  return <Placeholder title="Candidates" />;
+  return <CandidatesView />;
 }
